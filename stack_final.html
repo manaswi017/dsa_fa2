@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Solver</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #121212;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 700px;
+            margin-top: 50px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .maze-container {
+            display: grid;
+            gap: 4px;
+            grid-template-columns: repeat(10, 40px);
+            margin: 20px 0;
+            transition: all 0.4s ease-in-out;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            border-radius: 5px;
+            background-color: #333;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .cell:hover {
+            background-color: #bbb;
+            transform: scale(1.1);
+        }
+
+        .wall {
+            background-color: #444;
+        }
+
+        .path {
+            background-color: #888;
+        }
+
+        .visited {
+            background-color: #4caf50;
+        }
+
+        .start {
+            background-color: #ffeb3b;
+        }
+
+        .goal {
+            background-color: #f44336;
+        }
+
+        .route {
+            background-color: #2196F3;
+        }
+
+        .btn-primary {
+            background-color: #00bcd4;
+            border-color: #00bcd4;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #0097a7;
+            border-color: #0097a7;
+        }
+
+        .maze-header {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ffeb3b;
+        }
+
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .instructions {
+            font-size: 1rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .instructions span {
+            font-weight: 600;
+        }
+
+        .maze-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('https://www.w3schools.com/w3images/forest.jpg') no-repeat center center fixed;
+            background-size: cover;
+            opacity: 0.1;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .confetti {
+            position: absolute;
+            z-index: 9999;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: confetti 2s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes confetti {
+            0% {
+                transform: translate(-50%, -50%) scale(0);
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="maze-bg"></div>
+
+    <div class="container">
+        <h1 class="maze-header">Maze Solver</h1>
+        <div class="instructions">
+            <p><span>Click</span> on the cells to toggle walls and then click "Solve Maze" to find the path from Start
+                to Goal.</p>
+        </div>
+        <div class="maze-container" id="maze"></div>
+        <div class="button-container">
+            <button class="btn btn-primary" onclick="solveMaze()">Solve Maze</button>
+        </div>
+    </div>
+
+    <script>
+        const width = 10;
+        const height = 10;
+        let maze = Array(width * height).fill(0);
+        const start = { x: 0, y: 0 };
+        const goal = { x: 9, y: 9 };
+        maze[start.y * width + start.x] = 2;
+        maze[goal.y * width + goal.x] = 3;
+
+        const directions = [
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 1, y: 0 },
+            { x: 0, y: -1 },
+        ];
+
+        function createMaze() {
+            const mazeContainer = document.getElementById('maze');
+            mazeContainer.innerHTML = '';
+
+            for (let i = 0; i < height; i++) {
+                for (let j = 0; j < width; j++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (maze[i * width + j] === 1) {
+                        cell.classList.add('wall');
+                    } else if (maze[i * width + j] === 2) {
+                        cell.classList.add('start');
+                    } else if (maze[i * width + j] === 3) {
+                        cell.classList.add('goal');
+                    } else if (maze[i * width + j] === 4) {
+                        cell.classList.add('route');
+                    } else {
+                        cell.classList.add('path');
+                    }
+
+                    cell.addEventListener('click', function () {
+                        if (maze[i * width + j] !== 2 && maze[i * width + j] !== 3) {
+                            maze[i * width + j] = maze[i * width + j] === 0 ? 1 : 0;
+                            createMaze();
+                        }
+                    });
+
+                    mazeContainer.appendChild(cell);
+                }
+            }
+        }
+
+        function isValid(x, y) {
+            return x >= 0 && x < width && y >= 0 && y < height && maze[y * width + x] !== 1;
+        }
+
+        function solveMaze() {
+            const visited = Array(width * height).fill(false);
+            const path = [];
+
+            const stack = [{ x: start.x, y: start.y }];
+            visited[start.y * width + start.x] = true;
+
+            let found = false;
+            while (stack.length > 0) {
+                const current = stack.pop();
+                const { x, y } = current;
+
+                if (x === goal.x && y === goal.y) {
+                    found = true;
+                    path.push(current);
+                    break;
+                }
+
+                for (const direction of directions) {
+                    const newX = x + direction.x;
+                    const newY = y + direction.y;
+                    const newIndex = newY * width + newX;
+
+                    if (isValid(newX, newY) && !visited[newIndex]) {
+                        visited[newIndex] = true;
+                        stack.push({ x: newX, y: newY });
+                        path.push({ x, y });
+                    }
+                }
+            }
+
+            if (found) {
+                path.reverse().forEach(cell => {
+                    const index = cell.y * width + cell.x;
+                    maze[index] = 4;
+                });
+            }
+
+            createMaze();
+
+            if (found) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.classList.add('confetti');
+                    document.body.appendChild(confetti);
+                }, 500);
+            }
+        }
+
+        createMaze();
+    </script>
+</body>
+
+</html>
